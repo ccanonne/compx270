@@ -1,0 +1,100 @@
+\documentclass[a4paper]{tufte-book}
+
+\def\withcolors{1}
+\def\withnotes{1}
+\usepackage{ccanonne}
+\usepackage{additionalnotation}
+
+\usepackage{fontawesome5}
+\newcommand{\ball}[1][red]{\text{\textcolor{#1}{\footnotesize\faBaseballBall}}\xspace}
+\newcommand{\balla}[1][red]{\text{\textcolor{#1}{\footnotesize\faBaseballBall}}\xspace}
+\newcommand{\ballb}[1][blue]{\text{\textcolor{#1}{\footnotesize\faBasketballBall}}\xspace}
+\newcommand{\bin}[1][brown]{\text{\textcolor{#1}{\faBoxOpen}}}
+\newcommand{\red}[1]{\textcolor{red}{#1}}
+\newcommand{\blue}[1]{\textcolor{blue}{#1}}
+\newcommand{\orange}[1]{\textcolor{orange}{#1}}
+\newcommand{\green}[1]{\textcolor{ForestGreen}{#1}}
+\newcommand{\purple}[1]{\textcolor{RoyalPurple}{#1}}
+
+\newcommand{\advancedstuff}{($\star\star$)\xspace}
+
+\title{COMP\textsubscript{4}\textsuperscript{5}270: Randomised and Advanced Algorithms}
+\author{Cl\'ement Canonne}
+\date{2024}
+
+
+\renewcommand{\maketitlepage}{%
+  \cleardoublepage
+  {%
+  \sffamily
+  \begin{fullwidth}%
+  \fontsize{18}{20}\selectfont\par\noindent\textcolor{darkgray}{\allcaps\thanklessauthor}%
+  \vspace{11.5pc}%
+  \fontsize{34}{40}\selectfont\par\noindent\textcolor{darkgray}{\allcaps\thanklesstitle}%
+  \vfill
+  \fontsize{14}{16}\selectfont\par\noindent\thanklesspublisher%
+  \end{fullwidth}%
+  }%
+  \thispagestyle{empty}%
+  \clearpage
+}
+
+\begin{document}
+\frontmatter
+\maketitle
+This course will provide a rigorous introduction to a range of techniques and paradigms central to modern algorithm design, with a focus on randomised algorithms. The course will 
+emphasise the theoretical underpinnings of these algorithms and their mathematical guarantees, and provide intuition and understanding through a range of practical applications and examples such as probabilistic data structures, hashing, approximation algorithms, and streaming algorithms.
+
+
+\paragraph{Outline of the course (some topics are tentative):}
+\begin{enumerate}
+    \item Discrete Probability for Algorithm Designers: expectation, variance, independence. Randomised algorithms (definitions, motivating examples). Linearity of expectation and applications.
+    \item Concentration bounds, probability amplification. Median trick.
+    \item Coupon Collector, Load Balancing, Power of Two Choices
+    \item Derandomisation: Max-Cut, Method of Conditional Expectations
+    \item Graph algorithms: Randomized Min-Cut (Karger’s algorithm), MST in expected linear time (Karger, Klein, and Tarjan), possibly Bipartite Matching (Mulmuley, Vazirani, and Vazirani)
+    \item Probabilistic data structures I: Hashing and Bloom filters
+    \item Probabilistic data structures II: Johnson-Lindenstrauss, LSH
+    \item Streaming and Sketching I: definitions, examples, frequency estimation
+    \item Streaming and Sketching II: CountSketch, Count–min Sketch
+    \item Linear Programming and Randomised Rounding
+    \item Randomised Embeddings: FRT algorithm, and applications
+    \item Sampling and Counting
+    \item Review
+\end{enumerate}
+
+\tableofcontents
+
+\listoffigures
+
+\listoftables
+\mainmatter
+
+\chapter*{Before we start}
+Things you are assumed to know.
+\begin{enumerate}
+    \item Big-Oh notation and worst-case analysis. In this class, and in algorithm design and theory of algorithms and computer science in general,
+we extensively use two things: worst-case analysis and big-Oh notation. Those two things often come together, but they are not the same thing: they just
+complement each other. You're expected to be familiar and comfortable with both of them, and to know the difference.
+    \item Writing proofs, rigorously and preferably concisely.
+    \item \TODO
+\end{enumerate}
+
+\chapter{Lecture 1: Randomness, Probability, and Algorithms}
+\input{chapter1}
+
+\chapter{Lecture 2: Concentration Bounds, and Tricks}\label{chap:2}
+\input{chapter2}
+
+\chapter{Lecture 3: Balls in Bins}
+\input{chapter3}
+
+\chapter{Lecture 4: Derandomisation}
+\input{chapter4}
+
+\chapter{Lecture 5: Graph algorithms}
+\input{chapter5}
+
+\bibliographystyle{alpha}
+\bibliography{bibliography,extra}
+\end{document}

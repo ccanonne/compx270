@@ -1,0 +1,305 @@
+Sometimes, having a randomised algorithm is wonderful, but what we really need is a \emph{deterministic} version that achieves the same guarantees, but without the drawback of randomness: that is, we want the output to \emph{always} be good (unlike Monte Carlo-type algorithms), and the running time to \emph{always} be bounded (unlike Las Vegas-type algorithms). That is, we would like to be able, given any randomised algorithm $\Algo$, to ``derandomise'' it into an equally-good (or not much worse) deterministic version $\Algo'$. \emph{Can we achieve that?}
+
+Unsurprisingly, the answer is a resounding ``we don't know.''\marginnote{This is actually very much tied to one of the central questions in computational complexity, the $\textsf{P}$ vs. $\textsf{BPP}$ question.} However, we do have some (limited) techniques to do so, in particular cases. Here, we will see two of them: the \emph{small random seed approach} and the \emph{method of conditional expectations}.
+
+To illustrate this, we will consider as running example the ``maximum cut'' question:
+\begin{framed}
+\noindent \textsc{Max-Cut}: Given an (undirected) graph $G=(\red{V},\orange{E})$ on $\red{n}$ vertices and $\orange{m}$ edges, output a cut $(A,B)$ (partition of $\red{V}$) \emph{maximising} the number $c(A,B)$ of edges between $A$ and $B$.
+\end{framed}
+Of course, we would like an efficient algorithm for that. As a baseline, one could try to ``just'' find a good algorithm to solve the problem. Unfortunately, this is very unlikely to pan out:
+\begin{fact}
+    $\textsc{Max-Cut}$ is NP-Hard.
+\end{fact}
+This is annoying, as this strongly hints we should give up on trying to find an efficient algorithm (deterministic, but, also, randomised -- this is most likely very hard too) for $\textsc{Max-Cut}$. An \emph{exact} algorithm, at least: but maybe we can get a good \emph{approximation} algorithm?\footnote{Recall that an $\alpha$-approximation algorithm is an algorithm whose output's value is within a factor $\alpha > 0$ of the optimal solution's value.}
+
+Here is an obvious randomised algorithm: \emph{choose a cut $(A,B)$ uniformly at random.} Or, with more words and in pseudocode:
+\begin{algorithm}[H]
+\begin{algorithmic}[1]
+        \State $(A,B) \gets (\emptyset,\emptyset)$
+        \ForAll{$v\in \red{V}$}
+            \State $X_v \gets \bernoulli{1/2}$ \Comment{Independent of previous choices} \label{line:random:maxcut:cointoss}
+            \If{$X_v = 1$}
+            add $v$ to $A$
+            \Else\ 
+            add $v$ to $B$
+            \EndIf
+        \EndFor
+        \State \Return $(A,B)$
+    \end{algorithmic}
+    \caption{Randomised algorithm for $\textsc{Max-Cut}$.}
+    \label{algo:random:maxcut}
+\end{algorithm}
+\emph{Is it any good?} Maybe surprisingly, not too bad: in expectation, what it returns is a cut with at least \emph{half} as many edges as the best possible:
+\begin{theorem}
+    \label{theo:expected:maxcut}
+    For every $G=(V,E)$, the output $(A,B)$ of ~\cref{algo:random:maxcut} satisfies 
+    \[
+    \bEE{c(A,B)} \geq \frac{1}{2}\orange{m} \geq \frac{1}{2}\operatorname{OPT}(G)\,.
+    \]
+    Moreover, the algorithm runs in time $\bigO{\red{n}}$.
+\end{theorem}
+\begin{proof}
+    The proof is immediate by linearity of expectation. Fix any edge $e\in \orange{E}$ and let $X_e$ denote the indicator random variable ``$e$ is a cut edge'' (that is, one end is in $A$, the other in $B$). It is easy to check that $\bEE{X_e}=1/2$ (both endpoints are in $A$ with probability $1/2\cdot 1/2=1/4$, same for both endpoints in $B$, so an edge crosses with probability $1/2$).
+
+Rewriting $c(A,B)=\sum_{e\in E} X_e$, by linearity of expectation, we get
+\[
+\bEE{c(A,B)} = \bEE{\sum_{e\in \orange{E}} X_e}= \sum_{e\in \orange{E}}\bEE{X_e} =  \sum_{e\in \orange{E}}\frac{1}{2} = \frac{\orange{m}}{2}
+\]
+and the last part of the statement follows from observing that the best possible cut cannot have more than $\orange{m}$ edges.
+\end{proof}
+
+Can we convert~\cref{algo:random:maxcut} into a \emph{deterministic} (and still efficient) algorithm?
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Method 1: derandomizing the random seed}
+Let us get back to the view of a randomized algorithm from the first lecture, as an ``algorithm $\Algo$ taking an input $x$ and a string of uniformly random bits $\green{r}\in\{0,1\}^\ast$.'' Imagine (1)~$\Algo$ has a positive probability of returning a good solution; (2)~we have a worst-case bound $\green{R}$ on the \emph{randomness complexity} of our algorithm, \ie on the maximum number of random bits it would every need on any input $x$; and (3)~that, given a solution $y$ to the task, that we can \emph{verify} efficiently whether $y$ is a good solution~--~say, by running another algorithm $\orange{V}$ on $(x, y)$.
+
+Then the claim is that the following algorithm is a deterministic algorithm that finds a good solution:
+\begin{algorithm}[H]
+\begin{algorithmic}[1]
+        \Require Input $x$
+        \ForAll{$\green{r}\in\{0,1\}^{\green{R}}$}
+            \State $y \gets \Algo(x; \green{r})$ \Comment{Run $\Algo$ on $x$ with randomness $\green{r}$}
+            \If{$V(x,y) = 1$} \Comment{Verify if $y$ is a good solution}
+              \State\Return $y$ \Comment{If so, we are done}
+            \EndIf
+        \EndFor
+    \end{algorithmic}
+    \caption{Derandomization approach (by brute-forcing over the random seed)}
+    \label{algo:random:derandom:1}
+\end{algorithm}
+The fact that~\cref{algo:random:derandom:1} always returns a good solution, under our assumptions (1), (2), and (3), is immediate: there exists \emph{some} choice of the randomness $\green{r}$\marginnote{Importantly, this ``good random seed'' $\green{r}$ may not be the same for all $x$.} for which $\Algo$ returns a good solution on input $x$; once we try this particular $\green{r}$ in the loop, then we get a good solution $y$, and the verifier $\orange{V}$ successfully detects it. 
+
+There is, of course, a catch:
+\begin{fact}
+    \label{fact:derandomization:smallseed}
+    \cref{algo:random:derandom:1} runs in time $2^{\green{R}}\Paren{T_{\Algo}+T_{\orange{V}}}$, where $T_{\Algo},T_{\orange{V}}$ are the running times of the algorithm $\Algo$ and verifier $\orange{V}$.
+\end{fact}
+In particular, given that $\green{R}$ could be quite large (the only \emph{a priori} bound we have is $\green{R} \leq T_{\Algo}$),\marginnote{Can you see why?} this could be really bad \emph{even if $\Algo$ and $\orange{V}$ are efficient}: exponential in the input size, or even worse.
+
+\paragraph{So what to do?} One hope we may have is to get a much better bound on $\green{R}$ for some specific algorithms, or even to slightly modify these algorithms to make sure $\green{R}$ is small. For instance, if we can design a randomised algorithm which only needs say $\green{R} \leq 2\log n$ bits of randomness on inputs of size $n$, then we get $2^{\green{R}} = n^{2}$: that's polynomial!
+
+Looking back at~\cref{algo:random:maxcut}, it \emph{seems} like we are using an awful number of random bits: one for each vertex $v\in \orange{V}$, so $\green{R} = \red{n}$ in total. That is definitely not great. And yet, do we actually \emph{need} this many independent random bits? Could we do with a much smaller number and use something like hash functions?\marginnote{Hash functions are essentially magic: when you know how to use them, they are incredible. When you don't, you end up with a third arm growing out of your ear.}
+
+The only part of the proof of~\cref{theo:expected:maxcut} where we used the randomness was to argue that each edge $e=(u,v)$ is a cut-edge with probability $1/2$. This argument requires independence of the two random bits involved: the random bit $B_u$ for $u$, and the random bit $B_v$ for vertex $v$. That is all: 
+\begin{framed}
+\noindent\emph{As long as $B_u$ and $B_v$ are independent for each of the $\binom{\red{n}}{2}$ pairs of distinct vertices $(u,v)$, the proof goes through!}
+\end{framed}
+That is called \emph{pairwise independence}, and this is a \emph{much} weaker requirement than (full) independence. In particular, we can use good hash functions to get pairwise independence very cheaply~--~to see how, let us introduce a key definition:\marginnote{Importantly, here $x,x',y,y'$ are not random! We pick a hash function $\green{h}$ at random and see where it sends the inputs. So $\green{h}$ is a \emph{randomly picked hash function} (among the $\abs{\green{\mathcal{H}}}$ choices), not a ``random function'': once $\green{h}$ is picked, there is nothing random anymore.}
+\begin{definition}
+    \label{def:universal:pairwise:hash}
+    A family of functions $\green{\mathcal{H}} \subseteq \{h\colon \cX \to \cY\}$ is a \emph{family of pairwise independent hash functions},  or a \emph{strongly universal hash family}, if, for every $x,x'\in \cX$ with $x\neq x'$ and every $y,y'\in\cY$,
+    \[
+        \probaDistrOf{\green{h}\sim \green{\mathcal{H}}}{ \green{h}(x) = y, \green{h}(x') = y' } = \frac{1}{\abs{\cY}^2}
+    \]
+    where the probability is over the uniformly random choice of~$\green{h}\in\green{\mathcal{H}}$.
+\end{definition}
+Why does that help? Take the example of $\cX=[\red{n}]$ and $\cY=\{0,1\}$ in the definition above. Picking a hash function $\green{h}\in\green{\mathcal{H}}$ uniformly at random only takes $\log\abs{\green{\mathcal{H}}}$ truly independent random bits. But with these $\log\abs{\green{\mathcal{H}}}$ random bits, we obtain $|\cX|=\red{n}$ random bits
+\[
+    \green{h}(1), \green{h}(2), \dots, \green{h}(\red{n}) \in \{0,1\}
+\]
+which are \emph{not} fully independent, but such that \emph{any two of them behaves exactly like a pair of uniformly random bits.} This is exactly what we need! The only missing part is: \emph{do there exist ``small''\marginnote{Small enough, because we want to use as few ``true'' random bits as possible, and that will cost us $\log\abs{\green{\mathcal{H}}}$ of them.} families of pairwise independent hash functions $\green{\mathcal{H}} \subseteq \{h\colon [\red{n}] \to \{0,1\}\}$?} 
+
+\begin{fact}
+    \label{fact:pairwise:hash:functions}
+    There exists an explicit\footnote{Easy to construct and use. We will prove it in the tutorial!} family of pairwise independent hash functions $\green{\mathcal{H}} \subseteq \{h\colon [\red{n}] \to \{0,1\}\}$ with $\abs{\green{\mathcal{H}}} = 2^{\clg{\log(\red{n}+1)}}$.
+\end{fact}
+
+This is great news! Now we can modify~\cref{algo:random:maxcut} to first pick $\green{h}$ uniformly at random from this specific $\green{\mathcal{H}}$ (this only requires $\green{R} \leq \clg{\log(\red{n}+1)}$ bits of randomness), and then use $X_v \gets \green{h}(v)$ as random coin toss for vertex $v$ in~\cref{line:random:maxcut:cointoss}. 
+
+\begin{algorithm}[H]
+\begin{algorithmic}[1]
+        \State $(A,B) \gets (\emptyset,\emptyset)$
+        \State Draw $\green{h}\colon \red{V} \to \{0,1\}$ uniformly at random from the $\green{\mathcal{H}}$ promised by~\cref{fact:pairwise:hash:functions}, using $\green{R}=\clg{\log(\red{n}+1)}$ random bits
+        \ForAll{$v\in \red{V}$}
+            \State $X_v \gets \green{h}(v)$ \Comment{Pairwise independence}
+            \If{$X_v = 1$}
+            add $v$ to $A$
+            \Else\ 
+            add $v$ to $B$
+            \EndIf
+        \EndFor
+        \State \Return $(A,B)$
+    \end{algorithmic}
+    \caption{(Modified) Randomised algorithm for $\textsc{Max-Cut}$ to use a small random seed.}
+    \label{algo:random:maxcut:smallseed}
+\end{algorithm}
+
+By pairwise independence, the proof of correctness of this (modified)~\cref{algo:random:maxcut} goes through exactly as in~\cref{theo:expected:maxcut}, but now we use much fewer random bits\dots So, when derandomising the algorithm \emph{via}~\cref{algo:random:derandom:1}, we only pay a factor
+\[
+    2^{\green{R}} = 2^{\clg{\log(\red{n}+1)}} \leq 2(\red{n}+1) = O(\red{n})
+\]
+What about the rest? Well, we saw already that $T_{\Algo}=O(\red{n})$. As for the time $T_{\orange{V}}$ it takes to verify a cut $(A,B)$ has size at least $\orange{m}/2$, this is $T_{\orange{V}} = O(\orange{m}+\red{n})$, and so by~\cref{fact:derandomization:smallseed} our ``derandomised algorithm'' has running time at most
+\[
+    2^{\green{R}}\Paren{T_{\Algo}+T_{\orange{V}}} = \bigO{\red{n}(\orange{m}+\red{n})}\,.
+\]
+Not bad. But we are missing a small part: one of the assumptions required to derandomise using~\cref{algo:random:derandom:1} was ``(1)~$\Algo$ has a positive probability of returning a good solution.'' We never checked this: all we know is that our randomised algorithm, \cref{algo:random:maxcut:smallseed}, returns a solution that is good (\ie with value at least $\frac{1}{2}\orange{m}$) \emph{in expectation}. Does that mean it has a \emph{positive probability} of returning a good solution?
+
+\noindent Thankfully, yes: it can be arbitrarily small, but it is positive:\marginnote{Put differently: ``a random variable cannot \emph{always} be strictly below its expectation.''}
+\clearpage
+\begin{fact}
+    \label{fact:sometimes:at:least:expectation}
+    If $X$ is a random variable such that $\expect{X}$ exists, then $\probaOf{X \geq \expect{X}} > 0$.
+\end{fact}
+\begin{proof}
+    Given a random variable $X$ with finite expectation $\mu \eqdef \bEE{X}$, we have
+$\indic{X < \mu} + \indic{X \geq \mu }= 1$. If $\probaOf{X < \mu} = 1$; then
+\begin{align*}
+\mu &= \bEE{X} = \bEE{X\indic{X < \mu}} + \bEE{X\indic{X \geq\mu}} \\
+&< \bEE{\mu\indic{X < \mu}} + \bEE{X\indic{X \geq \mu}} \\
+&\leq \underbrace{\mu \probaOf{X < \mu}}_{\leq \mu} + \bEE{X\indic{X \geq \mu}} \,.
+\end{align*}
+As $\probaOf{X \geq \mu} = 0$ we have $\indic{X \geq \mu}=0$ (always), so the second term is zero; and as a result we get $\mu < \mu$, a contradiction.
+\end{proof}
+Putting it all together, what we have done is going from~\cref{algo:random:maxcut} (randomised algorithm) to~\cref{algo:random:maxcut:smallseed} (randomised algorithm using much fewer random bits) to a deterministic algorithm (using the general technique of~\cref{algo:random:derandom:1}). This establishes the following:
+\begin{theorem}
+    \label{theo:expected:maxcut:derandomized:1}
+    There exists a \emph{deterministic} algorithm $\Algo'$ for $\textsc{Max-Cut}$ such that, for every $G=(V,E)$, the output $(A,B)$ of$ \Algo'$ satisfies 
+    \[
+        c(A,B) \geq \frac{1}{2}\orange{m} \geq \frac{1}{2}\operatorname{OPT}(G)\,.
+    \]
+    Moreover, the algorithm runs in time $\bigO{\red{n}\max(\orange{m},\red{n})}$.
+\end{theorem}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Method 2: the method of conditional expectations}
+
+In some cases, the algorithm \emph{does} need a lot of random bits, and there is no clear way to bring the randomness complexity $\green{R}$ down. In these cases, there is (sometimes) an other option to use: the \emph{method of conditional expectations},\footnote{This is also sometimes called the method of conditional probabilities.} which we will see now in the context of our randomised algorithm for \textsc{Max-Cut},~\cref{algo:random:maxcut}.
+
+The method of conditional expectations essentially consists in looking at the sequence of random choices our algorithm made, and replacing these random choices one by one with deterministic choices which are always ``at least as good as what the random choice would give in expectation.''
+
+Specifically, our randomised algorithm flips one coin per vertex, and the way we wrote it in~\cref{algo:random:maxcut} it is doing so one vertex at a time.\footnote{Note that in~\cref{algo:random:maxcut}, and~\cref{algo:random:maxcut:smallseed}, we could actually make all these random choices in parallel. With this method though, we will need to make our choices sequentially.} Instead of flipping a coin, make the best \emph{greedy} decision for the current bit to choose. For simplicity, let's order the vertices as $v_1, v_2, \dots, v_{\red{n}}$, and write $X_i \in \{0,1\}$ for the bit $X_{v_i}$ that tells us if $v_i \in A$.
+
+What we will do first is set $X_1$ deterministically, say, without loss of generality, to $1$. Then we will choose $X_2$ to ensure whatever choice we make \emph{does not decrease} the expectation of $c(A,B)$ (over the remaining choices $X_3,\dots, X_{\red{n}}$, \emph{if} we were to choose those uniformly at random). That is, we want to find an (efficiently computable, and deterministic) rule that tells us how to set $X_{i+1}$ based on our previous choices $X_1,\dots, X_i$, which would ensure that the conditional expectation of $c(A,B)$ does not decrease:
+\begin{equation}
+    \label{eq:method:conditional:expectations}
+	\expectCond{c(A,B) }{X_1,\dots, X_i} \stackrel{\rm want}{\leq} \expectCond{c(A,B) }{X_1,\dots, X_{i+1}}
+\end{equation}
+If we had that, we would be in good shape, since then
+\begin{align*}
+	\frac{\orange{m}}{2} &= \expect{c(A,B) } \\
+    &\leq \expectCond{c(A,B) }{X_1}  \\
+    &\leq \expectCond{c(A,B) }{X_1,X_2}  \\
+    &\leq \dots  \\
+    &\leq \expectCond{c(A,B) }{X_1,X_2,\dots, X_{\red{n}}} 
+\end{align*}
+and that very last term is the value of the cut we finally obtain once we have (deterministically) chosen $X_1,X_2,\dots, X_{\red{n}}$: there is no randomness left or choice remaining to make, we just have our cut $(A,B)$!
+
+So \emph{how} do we do this ``derandomisation''? What is the rule we should follow to choose $X_{i+1}$ based on previous choices in order to guarantee~\eqref{eq:method:conditional:expectations} holds? Observe that, for any given $1\leq i\leq \red{n}-1$, 
+\begin{align*}
+		&\expectCond{c(A,B) }{X_1,\dots, X_i} \\
+		&\quad= \probaOf{\blue{X_{i+1}=0}}\expectCond{c(A,B) }{X_1,\dots, X_i, \blue{X_{i+1}=0}} \\
+		&\qquad\qquad+ \probaOf{\red{X_{i+1}=1}}\expectCond{c(A,B) }{X_1,\dots, X_i, \red{X_{i+1}=1}} \\
+		&\quad= \blue{\frac{1}{2}}\expectCond{c(A,B) }{X_1,\dots, X_i, \blue{X_{i+1}=0}}
+		+ \red{\frac{1}{2}}\expectCond{c(A,B) }{X_1,\dots, X_i, \red{X_{i+1}=1}} \\
+		&\quad\leq \max\Paren{\expectCond{c(A,B) }{X_1,\dots, X_i, \blue{X_{i+1}=0}} ,\expectCond{c(A,B) }{X_1,\dots, X_i, \red{X_{i+1}=1}} }
+\end{align*}
+where the last inequality uses that $\frac{x+y}{2} \leq \max(x,y)$. So \emph{if} we had a way to efficiently compute the two quantities 
+\[
+    \expectCond{c(A,B) }{X_1,\dots, X_i, \blue{X_{i+1}=0}}
+\]
+and 
+\[
+    \expectCond{c(A,B) }{X_1,\dots, X_i, \red{X_{i+1}=1}}
+\]
+we could just greedily pick the choice of $X_{i+1}$ corresponding to the maximum of the two, and we would be done.\footnote{Technically, we don't even need to compute the two values, we just need to have a way to figure out which one of the two is largest.}
+
+Luckily: here, we can. Let's take a step back: once we have already chosen $X_1,\dots, X_i$, we have decided where to put the first $i$ vertices $v_1,\dots, v_i$: either in $A$, or not. Then, our choice for $X_{i+1}$ can only affect the edges with one endpoint being $v_{i+1}$, so our decision can only impact two types of edges, depending on where their \emph{other} endpoint is:\marginnote{Phrased differently: at any given stage, $c(A,B)$ is the sum of the contribution of the edges already committed to (both endpoint vertices have been assigned to $A,B$), and those still open (at least one vertex endpoint not decided yet). The first contribution is fixed, and the expectation of the second is still $\frac{1}{2}$ for each edge.}
+\begin{itemize}
+	\item that endpoint is a vertex in $v_1,\dots, v_i$: our choice for $v_{i+1}$ will fully determine whether these edges contribute to $c(A,B)$ or not.
+	\item that endpoint is a vertex in $v_{i+2},\dots, v_{\red{n}}$: our choice for $v_{i+1}$ will leave open whether these edges contribute to $c(A,B)$. That decision will only be made in the future, separately for each of these edges, when making the choice of whether to put that second endpoint into $A$.
+\end{itemize}
+When we set $X_{i+1}$, we only ``commit'' on the edges of the first type, \emph{and that's all}. Therefore, the best rule is to choose $X_{i+1}$ (whether to put $v_{i+1}$ in $A$) in order to maximise the number of edges of the first kind that contribute to $c(A,B)$. This is easy to do in $O(\green{m})$ time: for each of the two options for $X_{i+1}$, count the number of edges of the form $(v_j, v_{i+1})$ with $1\leq j\leq i$ that would contribute to the cut:
+\begin{align}
+    \red{N_A(i+1)} &= \abs{\setOfSuchThat{1\leq \orange{j}\leq i}{ (v_{\green{j}}, v_{i+1}) \in E \text{ and } v_{\orange{j}} \in B } } \label{eq:maxcut:NAi}\\
+    \blue{N_B(i+1)} &= \abs{\setOfSuchThat{1\leq \orange{j}\leq i}{ (v_{\green{j}}, v_{i+1}) \in E \text{ and } v_{\orange{j}} \in A } }  \label{eq:maxcut:NBi}\\
+\end{align}
+and pick whichever of the two options for which that number is the biggest! This will ensure~\eqref{eq:method:conditional:expectations} holds.
+
+\begin{algorithm}[H]
+\begin{algorithmic}[1]
+        \State $(A,B) \gets (\emptyset,\emptyset)$
+        \State Order the vertices as $v_1,\dots,v_{\red{n}}$ (arbitrarily)
+        \ForAll{$1\leq i\leq \red{n}$}
+            \State Compute $\red{N_A(i)}, \blue{N_B(i)}$ as in~\cref{eq:maxcut:NAi,eq:maxcut:NBi}
+            \If{$\red{N_A(i)}\geq \blue{N_B(i)}$}
+            add $v_i$ to $A$
+            \Else\ 
+            add $v_i$ to $B$
+            \EndIf
+        \EndFor
+        \State \Return $(A,B)$
+    \end{algorithmic}
+    \caption{Derandomised algorithm for $\textsc{Max-Cut}$ using the method of conditional expectations.}
+    \label{algo:random:maxcut:conditionalexpect}
+\end{algorithm}
+
+Overall, what we have shown is the following:
+\begin{theorem}
+    \label{theo:expected:maxcut:derandomized:2}
+    There exists a \emph{deterministic} algorithm $\Algo''$ (\cref{algo:random:maxcut:conditionalexpect}) for $\textsc{Max-Cut}$ such that, for every $G=(V,E)$, the output $(A,B)$ of$ \Algo''$ satisfies 
+    \[
+        c(A,B) \geq \frac{1}{2}\orange{m} \geq \frac{1}{2}\operatorname{OPT}(G)\,.
+    \]
+    Moreover, the algorithm runs in time $\bigO{\red{n}\orange{m}}$.
+\end{theorem}
+
+
+\begin{framed}
+\noindent We have seen two general derandomisation techniques:
+\begin{itemize}
+    \item If we can show our randomised algorithm uses at most $\green{R}$ truly uniformly random bits \emph{and} any that given solution can be efficiently checked, then~\cref{fact:derandomization:smallseed,algo:random:derandom:1} provide a way to get a deterministic algorithm ``almost as good'', at the cost of a factor $2^{\green{R}}$ in the time complexity.
+    \item Looking at the analysis of the algorithm, we can often achieve the first point by using \emph{hash functions} (only requiring a small truly random seed), provided that the analysis only uses pairwise, or, more generally, $k$-wise independence.
+    \item If our algorithm has some nice properties (namely, if can efficiently compute the \emph{conditional expectation} of our solution's value given any setting of choices made so far), then the method of conditional expectations provides another powerful way of derandomising algorithms.
+\end{itemize}
+\end{framed}
+
+\paragraph{A further remark.} Everything we have said about $\textsc{Max-Cut}$ in this chapter (and our algorithms) generalises to weighted graphs (and weighted cuts). \marginnote{Try it!}
+
+\begin{fact}
+    We can do better than $1/2$! There exists an $0.878$-approximation algorithm -- just not as simple. See Section~6.2 of~\cite{WilliamsonS}. We believe this is optimal, assuming something called the ``Unique Games Conjecture'' (UGC): but even without UGC, it is known we cannot do better than $16/17\approx 0.94$ unless $\textsf{P}=\textsf{NP}$.
+\end{fact}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{A detour: the Probabilistic Method}
+Our example above with the first method\footnote{When we used~\cref{fact:sometimes:at:least:expectation} to convert the expected guarantee into a non-zero probability of a good output.} can be viewed an instance of a general proof technique called the \emph{probabilistic method}. Namely, to prove existence of something (\eg a solution to a problem satisfying some nice properties (``there exists a maximum flow with integral flows''), or an object of a specific type (``there exists a bipartite graph such that XYZ''), etc.), there are several ways: one, very convenient, is to come up with an algorithm which outputs such an object. The algorithmic does not need to be efficient: if it outputs something of a particular type, then such things clearly must exist. This is a \emph{constructive} way to establish existence.
+
+The probabilistic method... doesn't do that. Instead, to prove that there exists some object $x$ (in a big set $\cX$) which satisfies some ``good'' property $P(x)$, we define a probability distribution $D$ over $\cX$, and then argue that 
+\begin{equation}
+    \probaDistrOf{\mathbf{x}\sim D}{P(\mathbf{x}) \text{ holds}} > 0
+\end{equation}
+that is, an object $\mathbf{x} \in \cX$ chosen \emph{at random} according to $D$ has a non-zero (maybe very small! But non-zero) probability of being ``good.'' Well, if a randomly chosen object happens to be good with some non-zero probability, that means there must exist \emph{some} good objects\dots
+
+The key here is to choose a suitable probability distribution $D$ over $\cX$. This is a bit of an art, but often (when $\cX$ is a finite set) considering the uniform distribution over $\cX$ works.\medskip
+
+\noindent Here is an example: given a graph $G=(V,E)$, a 2-colouring of the edges of $G$ is a mapping $c\colon E \to \{\blue{\sf{}blue}, \red{\sf{}red}\}$. Given a colouring of the graph, a set of vertices $S\subseteq V$ is said to be \emph{monochromatic} if all the edges between vertices of $S$ have the same color: $c(e) = \red{\sf{}red}$ for all $e\in E\cap (S\times S)$, or $c(e) = \blue{\sf{}blue}$ for all $e\in E\cap (S\times S)$.
+
+Take the complete graph on $\red{n}$ vertices. Can we find a colouring of its edges such that no subset of 2 vertices is monochromatic (well, no)? No subset of 3 vertices? No subset of $\green{k}$ vertices? For which values of $\green{k}$ is that possible?
+\begin{theorem}[A sufficient condition on $\green{k}$]
+    Fix $0\leq \green{k}\leq \red{n}$ such that
+    \[
+            \binom{\red{n}}{\green{k}}2^{-\binom{\green{k}}{2}} < \frac{1}{2}
+    \]
+    Then, there exists a $2$-colouring of the edges of the complete graph $K_{\red{n}}$ such that no subset of $\green{k}$ vertices is monochromatic.
+\end{theorem}
+\begin{proof}
+    Let's take a random colouring $c$. More precisely, let's take a \emph{uniformly} random colouring $c$: each edge $e\in E$ is $\red{\sf{}red}$ or $\blue{\sf{}blue}$ with probability $1/2$, and chosen independently from all other edge colours. We want to show that the probability (over the choice of $c$) that there is no monochromatic set of size $\green{k}$ is non-zero; equivalently, that the probability that there exists (at least) one monochromatic subset $S$ of size $\green{k}$ is strictly less than 1.
+
+    Consider any (fixed) subset $S$ of $\green{k}$ vertices. Since $S$ has size $\green{k}$ and we start with the complete graph, there are $\binom{\green{k}}{2}$ edges between vertices of $S$; so the probability that our randomly chosen $c$ makes $S$ monochromatic is
+    \begin{align*}
+        \probaOf{\substack{\text{all edges are \blue{\sf{}blue} or}\\\text{ all edges are \red{\sf{}red}}} }\
+        &= \probaOf{ \text{all edges are \blue{\sf{}blue} }} + \probaOf{ \text{all edges are \red{\sf{}red}} } \\
+        &= \frac{1}{2^{\binom{\green{k}}{2}}}+\frac{1}{2^{\binom{\green{k}}{2}}} = \frac{2}{2^{\binom{\green{k}}{2}}}
+    \end{align*}
+    where we used independence of the choice across edges to get $(1/2)^{\binom{\green{k}}{2}}$. That tells us the probability that a given, fixed subset $S$ is monochromatic. So to bound the probability that this happens to \emph{at least one} of them, we use a union bound over all those subsets. There are exactly $\binom{\red{n}}{\green{k}}$ of them, so by a union bound
+    \begin{align*}
+        \probaOf{ \substack{\text{there is at least}\\ \text{one monochromatic}\\\text{subset of size $\green{k}$}}} 
+        &= \probaOf{ \bigcup_{S: |S|=\green{k}} \{S \text{ is monochromatic}\} } \\
+        &\leq \sum_{S: |S|=\green{k}} \probaOf{ S \text{ is monochromatic}}\\
+        &\leq \binom{\red{n}}{\green{k}}\cdot \frac{2}{2^{\binom{\green{k}}{2}}}
+    \end{align*}
+    which is strictly less than $1$ whenever $\binom{\red{n}}{\green{k}}2^{-\binom{\green{k}}{2}} < \frac{1}{2}$. We are done.
+\end{proof}
+
+\medskip\noindent\textbf{Further reading:} the (excellent) book by Alon and Spencer\cite{AlonSBook}.
