@@ -208,7 +208,7 @@ Again, maintaining an exact counter would take $O(\log\green{m})$ bits: this is 
     \]
     with space complexity 
     \[
-        \purple{s} = \bigO{ \log\log\green{m} + \log\frac{1}{\dst}+\log\frac{1}{\errprob} }
+        \purple{s} = \log\log\green{m} + \bigO{ \log\frac{1}{\dst}+\log\frac{1}{\errprob} }
     \]
     that is, doubly logarithmic in $\green{m}$ \emph{and logarithmic in $1/\dst$}.
 \end{theorem}
