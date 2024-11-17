@@ -1,0 +1,321 @@
+\begin{quotation}\itshape
+``In low-space, nobody can remember your stream.''
+\end{quotation}
+
+\begin{framed}
+    We will follow for this chapter the (excellent) lecture notes by Amit Chakrabarti [AC], available at \url{https://www.cs.dartmouth.edu/~ac/Teach/data-streams-lecnotes.pdf}.
+\end{framed}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Basic Setup}
+We will specifically focus on one-pass algorithms, unless specified otherwise. $\green{m}$ denotes the length of the stream 
+\[
+\sigma = \langle a_1,\dots, a_{\green{m}} \rangle
+\]
+where each $a_i$ belongs to the universe $\cX$ of size $\ns$.\marginnote{Note that this notation is swapped with respect to the previous lectures, in other to match the lecture notes.} We do not impose any bound on the time complexity of our algorithms, but we will enforce that they use very little memory (space), with space complexity denoted by $\purple{s}$. We will aim for 
+\[
+\purple{s} = o(\min(\green{m},\ns))
+\]
+and would love to use much less, ideally 
+\[
+\purple{s} = O(\log \green{m} + \log\ns)
+\]
+or, if not, $\purple{s} = \poly(\log \green{m}, \log \ns)$. To do so, we will allow for randomised algorithms \emph{and} approximation algorithms, where the quality of the approximation will be controlled by a parameter $\dst > 0$, usually thought of as an (arbitrarily) small fixed constant.
+
+\section{The Majority Problem}\marginnote{Chapter 1 of [AC]}
+To begin, consider the (seemingly) very simple question of deciding whether there is \emph{one} element that appears at least half the time in the stream: that is, some  $j\in [\ns]$ whose \emph{frequency} $f_j$, defined as 
+\[
+    f_j \eqdef \sum_{i=1}^{\green{m}} \indicSet{a_i = j}
+\]
+satisfies $f_j \geq \frac{\green{m}}{2}$. This is the \textsc{Majority} problem: \marginnote{Of course, there are \emph{at most} two such elements, and at most one if we define the question as ``is there some $j$ such that $f_j > \green{m}/2$?'' The issue is that we do not know \emph{a priori} which one(s) of the $\ns$ elements could be the majority element(s).} at first glance, this seems very easy! Yet, spending some time thinking about it, you should convince yourself than it is surprisingly non-trivial to solve it using little memory.
+
+The first algorithm we will see, due to Misra and Gries~\cite{MisraG82}, is quite incredible in that regard: what it does is solving, \emph{deterministically}, a related (and more general) version of this question, which we will return into more detail in the next chapter: the question of \emph{frequency estimation}, which asks to approximate the frequency $f_j$'s, not just decide which ones are at least $\green{m}/2$.
+\begin{theorem}
+    The \textsc{Misra-Gries} algorithm (\cref{algo:misra:gries}) is a \emph{deterministic} one-pass algorithm which, for any given parameter $\dst\in(0,1]$, provides $\hat{f}_1,\dots, \hat{f}_{\ns}$ of all element frequencies such that
+    \[
+           f_j - \dst \green{m} \leq \hat{f}_j \leq f_j, \qquad j\in[\ns]
+    \]
+    with space complexity $\purple{s} = O(\log(\green{m}\ns)/\dst)$. (In particular, it can be used to solve the \textsc{Majority} problem in two passes.)
+\end{theorem}
+An interesting observation here is that of course the algorithm cannot compute explicitly $\ns$ values $\hat{f}_1,\dots, \hat{f}_{\ns}$: this by itself would take $\Omega(\ns)$ space. What it does is \emph{implicitly} do so, by only storing the values $\hat{f}_j$'s that are \emph{non-zero} (and making sure there are very few of them, only $O(1/\dst)$). Which makes sense, since we should not have many more non-zero estimates than this: after all, there can only be at most $1/\dst$ element $j\in[\ns]$ such that $f_j \geq \dst \green{m}$ (\ie which appear at least an $\dst$ fraction of the time in the stream)!
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \Require Parameter $\dst\in(0,1]$
+    \State $\red{A} \gets \emptyset$ \Comment{Use, \eg a self-balancing binary search tree (BST)}
+    \State Set $\purple{k} \gets \clg{1/\dst}$
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i = j\in [\ns]$
+        \If{$\red{A}[j] > 0$} \Comment{$j$ is in the BST}
+            \State $\red{A}[j]  \gets \red{A}[j] + 1$ \label{algo:misra:gries:increment2}
+        \ElsIf{$\red{A}[j] = 0$ \textbf{and} $\abs{\red{A}} < \purple{k}-1$}
+            \State $\red{A}[j]  \gets 1$ \label{algo:misra:gries:increment1}
+        \ElsIf{$\red{A}[j] = 0$ \textbf{and} $\abs{\red{A}} = \purple{k}-1$}
+            \ForAll{$j' \in \red{A}$}   \Comment{Loop over all $j'$ such that $\red{A}[j'] > 0$}
+                \State $\red{A}[j']  \gets \red{A}[j'] - 1$ \Comment{If $\red{A}[j']$ reaches $0$, remove it from $\red{A}$} \label{algo:misra:gries:decrement}
+            \EndFor
+        \EndIf
+    \EndFor
+    \Ensure On query $j\in[\ns]$, \Return $\red{A}[j]$
+    \end{algorithmic}
+    \caption{The \textsc{Misra-Gries} algorithm. Only store in $\red{A}$: if $\red{A}[j]$ does not exist, it is $0$. Instead of a BST, one could use a linked list, for instance: this would have the same space complexity, but a larger update time at each step.}\label{algo:misra:gries}
+\end{algorithm}
+\begin{proof}
+First, note that since $\red{A}$ never stores more $\purple{k} = O(1/\dst)$ elements, each of them taking $O(\log\ns + \log\green{m})$ bits (for the index of the element, and its current count), the space $\purple{s}$ is bounded as
+\[
+    \purple{s} = \bigO{\frac{\log(\green{m}\ns)}{\dst}}
+\]
+as claimed. 
+
+To prove correctness, fix any $j\in[\ns]$. Since $\red{A}[j]$ can only be incremented (on Line~\ref{algo:misra:gries:increment1} or~\ref{algo:misra:gries:increment2}) when element $j$ appears in the stream, we have, at the end of the stream,
+\[
+    \hat{f}_j = \red{A}[j] \leq f_j\,.
+\]
+For the other inequality (the lower bound), we need to get a grasp on the number of times $\red{A}[j]$ is decremented, which can only happen in Line~\ref{algo:misra:gries:decrement}. Every time this line is reached, this means that (1)~nothing else happens in this step (no increment to $\red{A}[j]$), and (2)~exactly $\purple{k}-1$ other counters are decremented (in the \textbf{for all} loop).
+
+We can see (1), conceptually, as one increment to $\red{A}[j]$ immediately followed by a decrement to $\red{A}[j]$: thinking of it this way allows us to say that $\red{A}[j]$ is incremented every time $j$ appears in the stream~--~but sometimes, it is decremented immediately after as well, and lets us combine (1) and (2) to say that every time Line~\ref{algo:misra:gries:decrement} is reached, \emph{exactly} $\purple{k}$ decrements are performed in $\red{A}$.
+Given that every increment uniquely corresponds to one of the $\green{m}$ steps,this means that each execution of Line~\ref{algo:misra:gries:decrement} corresponds to a disjoint chunk of $\purple{k}$ steps: when the increments to the $\red{A}[j']$'s had happened. But there are only $\green{m}$ steps in total, so if each decrement ``burns'' $\purple{k}$ of them, there can be at most $\frac{\green{m}}{\purple{k}}$ decrements steps! This shows that
+\[
+    \hat{f}_j = \red{A}[j] \geq f_j - \frac{\green{m}}{\purple{k}}\,,
+\]
+which, given the value of $\purple{k}$, implies $\hat{f}_j \geq f_j - \dst \green{m}$.\smallskip
+
+To see how the ``In particular'' statement follows, consider applying the \textsc{Misra-Gries} algorithm with $\dst = 1/4$, and at the end of the first pass considering the set $S\subseteq [\ns]$ of elements for which $\hat{f}_j \geq \frac{1}{4}\green{m}$. If $j^\ast$ is a majority element, then
+\[
+    \hat{f}_j \geq f_j - \dst \green{m} \geq \frac{1}{2}\green{m} - \frac{1}{4}\green{m} = \frac{1}{4}\green{m}\,,
+\]
+so $j^\ast \in S$. Conversely, if $j\in S$, then
+\[
+    f_j  \geq \hat{f}_j \geq \frac{1}{4}\green{m}\,,
+\]
+and so there can be at most $\frac{\green{m}}{(1/4)\green{m}} = 4$ elements in $S$. So keeping $S$ in memory only takes $4\cdot O(\log\ns)=O(\log\ns)$ bits. Then, all that remains to do is, in the \emph{second} pass, count \emph{exactly} the number of times each elements $j\in S$ appears, and check if that's at least $\green{m}/2$. Each such counter takes $O(\log\green{m})$ bits, and there are only (at most) $4$ counters to maintain now.
+\end{proof}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Approximate Counting Problem}\marginnote{Chapter 4 of [AC]}
+We will describe and analyse the Morris Counter algorithm, due to, well, Morris~\cite{Morris78}, which provides a constant-factor estimate of the number of elements of the stream: that is, an $F_1$ estimator. Put differently, at each time step $1\leq t\leq \green{m}$, we are told if some event happened ($a_i=1$) or not ($a_i=0$): the goal is to estimate how many events happened in total, \ie the number $\blue{d} = \sum_{i=1}^{\green{m}} a_i$.
+
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \State $\blue{x} \gets 0$
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i\in \bool$
+        \If{$a_i = 1$} 
+                \State $r_i \gets \bernoulli{{1}/{2^{\blue{x}}}}$ \Comment{Independent of previous choices.}
+                \State $\blue{x} \gets \blue{x} + r_i$
+        \EndIf
+    \EndFor
+    \State \Return $\blue{\widehat{d}} \gets 2^{\blue{x}}-1$
+    \end{algorithmic}
+    \caption{The \textsc{Morris Counter} algorithm.}\label{algo:morris}
+\end{algorithm}
+The space complexity is a little annoying to bound: we \emph{expect} $\blue{x}$ to never exceed $\log_2\green{m}$, since $\blue{d}$ is at most $\green{m}$ by definition and we should have $2^{\blue{x}}\approx \blue{d}$. But there is a very, very small chance that all Bernoullis turn out to be $1$, in which case $\blue{x}$ could become as big as $\green{m}$! This would make no sense, and also mean we would need $O(\log \green{m})$ bits to store $\blue{x}$, exactly what we do not want to pay. \emph{However},\marginnote{If $\blue{x}$ ever exceeds this value, the algorithm can just abort: this only adds a vanishing small amount to the probability of error.}  one can show that with overwhelming probability $\blue{x}$ remains at most $O(\log\green{m})$, and so the space complexity required is only $\purple{s} = O(\log \log \green{m})$.
+
+The proof of correctness of~\cref{algo:morris} relies on the key lemma below, analysing the expectation and variance of $\blue{\widehat{d}}$:
+\begin{lemma}
+    The random variable $\blue{\widehat{d}}$ defined in~\cref{algo:morris} satisfies
+    \[
+        \expect{\blue{\widehat{d}}} = \blue{d}
+    \]
+    and
+    \[
+        \var[\blue{\widehat{d}}] = \frac{\blue{d}(\blue{d}-1)}{2}
+    \]
+\end{lemma}
+\begin{proof}
+    Define $\blue{C}_i$, for $1\leq i\leq \green{m}$, as the value of $2^{\blue{x}}$ in~\cref{algo:morris} at the end of step $i$; so that $\blue{C}_0 = 2^0=1$ and $\blue{\widehat{d}} = \blue{C}_{\green{m}}-1$.
+
+    For any $1\leq i < \green{m}$, we then have
+    \[
+    \blue{C}_{i+1} = \begin{cases}
+        2\cdot \blue{C}_i &\text{if } a_{i+1} = 1\text{ and } r_{i+1}=1\\
+        \blue{C}_i &\text{otherwise}
+    \end{cases}
+    \]
+    which we can rewrite as $\blue{C}_{i+1} = (1+ a_{i+1} r_{i+1})\blue{C}_i$. Recalling that $r_{i+1}\sim \bernoulli{{1}/{\blue{C}_i}}$ gives us
+    \[
+    \expectCond{\blue{C}_{i+1}}{\blue{C}_i}
+    = (1+a_{i+1}\expectCond{r_{i+1}}{\blue{C}_i})\cdot \blue{C}_i
+    = \Paren{1+\frac{a_{i+1}}{\blue{C}_i}}\cdot \blue{C}_i
+    = \blue{C}_i + a_{i+1}
+    \]
+    and, by the Law of Total Expectation,
+    \[
+    \expect{\blue{C}_{i+1}}
+    = \expect{\expectCond{\blue{C}_{i+1}}{\blue{C}_i}}
+    = \expect{\blue{C}_i} + a_{i+1}\,.
+    \]
+    This gives us
+    \[
+        \expect{\blue{C}_{\green{m}}}
+        = \expect{\blue{C}_0}+\sum_{i=0}^{\green{m}-1} \Paren{\expect{\blue{C}_{i+1}}-\expect{\blue{C}_i}}
+        = 1 + \sum_{i=0}^{\green{m}-1} a_{i+1}
+        = 1 + \blue{d}
+    \]
+    showing that $\expect{\blue{\widehat{d}}} = \blue{d}$. The above actually showed the more general statement that
+    \begin{equation}
+        \label{eq:morris:vexpectation:step}
+        \expect{\blue{C}_{i}} = 1 + \sum_{j=1}^{i} a_{j}, \qquad 1\leq i\leq \green{m}\,,
+    \end{equation}
+    which we will use very soon.
+    
+    To compute the variance, we similarly analyse $\expect{\blue{C}_{\green{m}}^2}$: For any $1\leq i < \green{m}$,
+    \begin{align*}
+    \expectCond{\blue{C}_{i+1}^2}{\blue{C}_i}
+    &= \expectCond{(1+a_{i+1}r_{i+1})^2}{\blue{C}_i}\cdot \blue{C}_i^2\\
+    &= \Paren{1+\frac{a_{i+1}(2+a_{i+1})}{\blue{C}_i}}\cdot \blue{C}_i^2 \\
+    &= \blue{C}_i^2 + a_{i+1}(2+a_{i+1})\blue{C}_i
+    \end{align*}
+    where the second equality follows from expanding the square and computing the expectation. Again, by the Law of Total Expectation,
+    \begin{align*}
+    \expect{\blue{C}_{i+1}^2}
+    &= \expect{\expectCond{\blue{C}_{i+1}^2}{\blue{C}_i}} 
+    = \expect{\blue{C}_i^2} + a_{i+1}(2+a_{i+1})\expect{\blue{C}_i} \\
+    &= \expect{\blue{C}_i^2} + a_{i+1}(2+a_{i+1})\Paren{1 + \sum_{j=1}^{i} a_{j}} \tag{By~\cref{eq:morris:vexpectation:step}} \\
+    &= \expect{\blue{C}_i^2} + 3a_{i+1}\sum_{j=1}^{i+1} a_{j}
+    \end{align*}
+    where that last step is completely magical, but ``immediate in hindsight'' by checking the two possible cases: $a_{i+1}(2+a_{i+1})\Paren{1 + \sum_{j=1}^{i} a_{j}} = 3a_{i+1}\Paren{a_{i+1} + \sum_{j=1}^{i} a_{j}}$ for both $a_{i+1}=0$ and $a_{i+1}=1$. This gives us
+    \begin{align*}
+    \expect{\blue{C}_{\green{m}}^2}
+    &= \expect{\blue{C}_0^2} + 3\sum_{i=0}^{\green{m}-1}a_{i+1}\sum_{j=1}^{i+1} a_{j}
+    = 1 + 3\sum_{i=1}^{\green{m}}\sum_{j=1}^{i} a_{i}a_{j} \\
+    &= 1 + 3\cdot \frac{1}{2}\Paren{\Paren{\sum_{i=1}^{\green{m}} a_i}^2 + \sum_{i=1}^{\green{m}} a_i^2} \\
+    &= 1 + 3\cdot \frac{1}{2}\Paren{\blue{d}^2 + \blue{d}}
+    \end{align*}
+    (recalling, for the last step, that $a_i^2=a_i$ for all $i$, since $a_i \in\bool$). Since $\expect{\blue{C}_{\green{m}}}^2 = \blue{d}+1$, we finally get
+    \[
+    \var[\blue{C}_{\green{m}}] = 
+    1 + 3\cdot \frac{1}{2}\Paren{\blue{d}^2 + \blue{d}}
+    - (\blue{d}+1)^2 = \frac{\blue{d}^2 - \blue{d}}{2}\,,
+    \]
+    as claimed.
+\end{proof}
+
+While this $\bigTheta{\blue{d}^2}$ variance by itself is not good enough to obtain an accurate estimate with high constant probability using Chebyshev's inequality, averaging $k=O(1/\dst^2)$ independent copies of the Morris Counter enables us to bring down the variance by this factor, leading to a $(1+\dst)$-estimate with high (constant) probability. Using the median trick afterwards (running $T=O(\log(1/\errprob))$ copies of this improved-variance algorithm, and taking the median result) gives a high-probability result, leading to the following:
+\begin{theorem}
+    The medians-of-means version of the \textsc{Morris Counter} is a \emph{randomised} one-pass algorithm which, for any given parameters $\dst, \errprob\in(0,1]$, provides an estimate $\blue{\widehat{d}}$ of the number $\blue{d}$ of non-zero elements of the stream such that
+    \[
+           \probaOf{ (1-\dst)\blue{d} \leq \blue{\widehat{d}} \leq (1+\dst) \blue{d} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \frac{\log\log\green{m}}{\dst^2}\cdot \log\frac{1}{\errprob} }
+    \]
+    that is, \emph{doubly logarithmic} in $\green{m}$.
+\end{theorem}
+Again, maintaining an exact counter would take $O(\log\green{m})$ bits: this is an exponential improvement! And yet, \emph{we can do better.} Instead of using the median-of-means technique, we can be more careful about the algorithm itself: where we incremented $\blue{x}$ with probability $1/2^{\blue{x}}$ and returned $2^{\blue{x}}-1$, we will, for a suitable choice of $\alpha = \alpha(\dst,\errprob) > 0$, increment it with with probability $1/(\alpha(1+\alpha)^{\blue{x}})$ and return $(1+\alpha)^{\blue{x}}-1$. We will see the details in the tutorial, leading to this (much) improved bound:
+\begin{theorem}
+    The ``careful'' version of \textsc{Morris Counter} is a \emph{randomised} one-pass algorithm which, for any given parameters $\dst, \errprob\in(0,1]$, provides an estimate $\blue{\widehat{d}}$ of the number $\blue{d}$ of non-zero elements of the stream such that
+    \[
+           \probaOf{ (1-\dst)\blue{d} \leq \blue{\widehat{d}} \leq (1+\dst) \blue{d} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \log\log\green{m} + \log\frac{1}{\dst}+\log\frac{1}{\errprob} }
+    \]
+    that is, doubly logarithmic in $\green{m}$ \emph{and logarithmic in $1/\dst$}.
+\end{theorem}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Distinct Elements Problem}\marginnote{Chapters 2 and 3 of [AC]}
+We start this section with the \textsc{Tidemark} algorithm, due to Alon, Matias and Szegedy (AMS), which provides a constant-factor estimate of the number of distinct elements of the stream: that is, an $F_0$ estimator. In this section, we define $\blue{d}$ as this number of distinct elements, \ie
+\[
+    \blue{d} = \sum_{j\in[\ns]}\indicSet{f_j > 0}
+\]
+
+In what follows, for a given positive integer $k$, $\operatorname{zeros}(k)$ denotes the largest power of 2 which divides $k$, or, equivalently, the number of trailing zeroes in the binary representation of $k$.
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \State Pick $h\colon[\ns]\to[\ns]$ from a strongly universal hashing family
+    \State $\blue{z}\gets 0$
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i \in [\ns]$
+        \If{$\operatorname{zeros}(h(a_i)) \geq \blue{z}$}
+            \State $\blue{z}\gets \operatorname{zeros}(h(a_i))$
+        \EndIf
+    \EndFor
+    \State \Return $\blue{\widehat{d}}\gets \sqrt{2}\cdot  2^{\blue{z}}$
+    \end{algorithmic}
+    \caption{The \textsc{Tidemark} algorithm}\label{algo:tidemark}
+\end{algorithm}
+The space complexity of~\cref{algo:tidemark} is 
+\[
+    \purple{s} = \bigO{\log\ns}
+\]
+as all that is needed is storing the hash function ($\bigO{\log\ns}$ bits, for a suitable strongly universal hash family) and $1\leq \blue{z}\leq \log_2\ns$ (which takes $\bigO{\log\log\ns}$ bits). To analyse the correctness of the algorithm (and the quality of the estimate it outputs), define the random variables
+\[
+    Y_r \eqdef \sum_{\substack{j\in[\ns]\\ f_j > 0}} \indicSet{\operatorname{zeros}(h(j)) \geq r}, \qquad r \geq 0
+\]
+(where the randomness is over the choice of the hash function $h$). One can check that, by definition,
+\[
+    Y_r \geq 1 \Leftrightarrow \blue{z} \geq r
+\]
+for every integer $r\geq 0$. Moreover,
+\[
+    \expect{Y_r} = \sum_{\substack{j\in[\ns]\\ f_j > 0}} \probaOf{\operatorname{zeros}(h(j)) \geq r} = \sum_{\substack{j\in[\ns]\\ f_j > 0}} \frac{1}{2^r} = \frac{\blue{d}}{2^r}
+\]
+where we used the fact that each $h(j)$ is uniformly distributed to write that $\probaOf{\operatorname{zeros}(h(j)) \geq r} = \probaOf{2^r \text{ divides } h(j)} = \frac{1}{2^r}$. Similarly, using pairwise independence,
+\[
+    \var[Y_r] = \sum_{\substack{j\in[\ns]\\ f_j > 0}} \var[\indicSet{\operatorname{zeros}(h(j)) \geq r}]  \leq \sum_{\substack{j\in[\ns]\\ f_j > 0}} \frac{1}{2^r} = \frac{\blue{d}}{2^r}
+\]
+the inequality using $\var[X] \leq \expect{X^2}$ and the fact that $X^2=X$ when $X$ is an indicator random variable. Using these two facts, for every $r\geq 0$,
+\begin{itemize}
+    \item $\probaOf{\blue{z} \geq r} = \probaOf{Y_r \geq 1} \leq \expect{Y_r} = \frac{\blue{d}}{2^r}$ by Markov;
+    \item $\probaOf{\blue{z} \leq r} = \probaOf{Y_{r+1} = 0 } \leq \frac{\var[Y_{r+1}] }{\expect{Y_{r+1}}^2} \leq \frac{2^{r+1}}{\blue{d}}$ by Chebyshev,
+\end{itemize}
+using that $\probaOf{Y_{r+1} = 0 } \leq \probaOf{|Y_{r+1} - \expect{Y_{r+1}}| \geq \expect{Y_{r+1}} }$. This is all we need! Setting $\orange{C} \eqdef 3\sqrt{2}$,
+\[
+\probaOf{\blue{\widehat{d}} \geq \orange{C}\cdot \blue{d}}
+\leq \probaOf{\blue{z} \geq \clg{\log_2(\orange{C}\cdot \blue{d}/\sqrt{2})}}
+\leq \frac{\sqrt{2}\blue{d}}{\orange{C}\blue{d}}  = \frac{1}{3}
+\]
+while
+\[
+\probaOf{\blue{\widehat{d}} \leq \blue{d}/\orange{C}}
+\leq \probaOf{\blue{z} \leq \flr{\log_2(\blue{d}/(\sqrt{2}\orange{C}))}}
+\leq \frac{2\blue{d}}{\sqrt{2}\orange{C}\blue{d}}  = \frac{1}{3}
+\]
+
+Combining the above with the median trick, we readily get:
+\begin{theorem}
+    The (median trick version of the) \textsc{Tidemark} (AMS) algorithm  is a \emph{randomised} one-pass algorithm which, for any given parameter $\errprob\in(0,1]$, provides an estimate $\blue{\widehat{d}}$ of the number $\blue{d}$ of distinct elements of the stream such that, for some absolute constant $\orange{C}>0$,
+    \[
+           \probaOf{ \frac{1}{\orange{C}}\cdot\blue{d} \leq \blue{\widehat{d}} \leq \orange{C} \cdot \blue{d} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \log \ns \cdot \log\frac{1}{\errprob} }\,.
+    \]
+\end{theorem}
+This is not bad, but can we achieve estimation factor arbitrarily close to one, say, $1+\dst$? The answer is yes: the following algorithm, due to  Bar-Yossef, Jayram, Kumar, Sivakumar and Trevisan (BJKST), does exactly that.
+
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \Require Parameter $\dst\in(0,1]$
+    \State Set $\purple{k} \gets O(\log^2\ns/\dst^4)$, $\purple{T} \gets \Theta(1/\dst^2)$
+    \State Pick $h\colon[\ns]\to[\ns]$ from a strongly universal hashing family
+    \State Pick $g\colon[\ns]\to[\purple{k}]$ from a strongly universal hashing family%\marginnote{Check if strongly is necessary}
+    \Statex
+    \State $\blue{z}\gets 0$, $\red{B}\gets \emptyset$
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i \in [\ns]$
+        \If{$\operatorname{zeros}(h(a_i)) \geq \blue{z}$}
+            \State $\red{B} \gets \red{B}\cup \{(g(a_i), \operatorname{zeros}(h(a_i)))\}$
+            \While{$|\red{B}| \geq \purple{T}$}
+                \State $\blue{z}\gets \blue{z}+1$
+                \State Remove every $(a,b)$ with $b< \blue{z}$ from $\red{B}$
+            \EndWhile
+        \EndIf
+    \EndFor
+    \State \Return $|\red{B}|\cdot  2^{\blue{z}}$
+    \end{algorithmic}
+    \caption{The \textsc{BJKST} algorithm}
+\end{algorithm}
+
+\begin{theorem}
+    The (median trick version of the) \textsc{BJKST} algorithm  is a \emph{randomised} one-pass algorithm which, for any given parameters $\dst,\errprob\in(0,1]$, provides an estimate $\blue{\widehat{d}}$ of the number $\blue{d}$ of distinct elements of the stream such that, for some absolute constant $\orange{C}>0$,
+    \[
+           \probaOf{ (1-\dst)\cdot\blue{d} \leq \blue{\widehat{d}} \leq (1+\dst)\blue{d} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \Paren{\log \ns + \frac{\log(1/\dst) + \log\log\ns}{\dst^2} }\cdot \log\frac{1}{\errprob} }\,.
+    \]
+\end{theorem}
+This is pretty good, but\dots \emph{Is it optimal?}

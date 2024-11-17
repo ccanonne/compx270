@@ -27,6 +27,8 @@
 % Algorithm environment
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
 
 % Colors (with names)
 %\usepackage[usenames,dvipsnames,table]{xcolor}
@@ -180,6 +182,7 @@
 \newcommand{\fail}{\textsf{fail}\xspace}
 \newcommand{\reject}{\textsf{reject}\xspace}
 \newcommand{\opt}{{\textsc{opt}}\xspace}
+\newcommand{\val}{{\textsc{val}}\xspace}
 \newcommand{\half}{\frac{1}{2}}
 \newcommand{\domain}{\ensuremath{\mathcal{X}}\xspace} % Domain of a distribution (default notation)
 \newcommand{\distribs}[1]{\Delta\mleft(#1\mright)} % Domain of a distribution (default notation)

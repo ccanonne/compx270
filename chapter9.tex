@@ -1,0 +1,257 @@
+\begin{framed}
+    We will follow for this chapter the (excellent) lecture notes by Amit Chakrabarti [AC], available at \url{https://www.cs.dartmouth.edu/~ac/Teach/data-streams-lecnotes.pdf}.
+\end{framed}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Sketching}\marginnote{Chapter 5.2 of [AC]}
+A sketching algorithm is the response to the following very natural question: 
+\begin{framed}\itshape
+    If I run two instances of a streaming algorithm for problem $\mathcal{P}$ on a stream $\sigma_1$ and on a stream $\sigma_2$, can I combine their outputs to get the same result as if I had run my algorithm for $\mathcal{P}$ on the stream $\sigma_1\circ\sigma_2$?
+\end{framed}
+This sounds very desirable, as this allows to stop an algorithm, distribute it across multiple servers or subsets of a stream, and still be able to recombine everything. 
+
+What is even \emph{more} appealing is a \emph{linear} sketching algorithm, where the (sketch) output of the algorithm is just a linear function of the input stream (into a lower-dimensional space), and where ``combining their outputs'' just means\dots summing them up.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Back to Frequent Elements!}
+Remember that in the previous lecture, we saw the \textsc{Misra--Gries} algorithm which allowed us to compute deterministically, in one pass, an additive approximation of all the $\ns$ frequencies of a given stream $\sigma$:
+\[
+    \blue{f}_j - \dst\green{m} \leq \blue{\widehat{f}}_j \leq \blue{f}_j, \qquad \text{ for all } j\in[\ns]
+\]
+using space $\purple{s} = \bigO{\log(\green{m}\ns)/\dst}$. We will see in the tutorial that this is actually already a sketching algorithm! 
+
+It suffers from two possible issues, however: first, it only works in the ``cash register'' streaming model,\marginnote{Cash register model: ``numbers go up and only up''} where items come in the stream but are never removed (``numbers can only go up''). Second, the approximation guarantee it provides is rather weak: since 
+\[
+\normone{\blue{f}} = \blue{f}_1+\blue{f}_2+\dots+\blue{f}_{\ns} = \green{m}
+\]
+for every stream $\sigma$, you can think of it as providing an $\lp[1]$-estimate of the stream:
+\begin{equation}
+    - \dst\normone{\blue{f}} \leq \blue{\widehat{f}}_j - \blue{f}_j \leq 0 \qquad \text{ for all } j\in[\ns]
+\end{equation}
+which implies 
+\begin{equation}
+    \label{eq:guarantee:l1:misra-gries}
+    \norminf{\blue{\widehat{f}}-\blue{f}} \leq \dst\normone{\blue{f}}
+\end{equation}
+We could ask for other types of approximation: for instance, what if our error was with respect to another norm, say, $\lp[2]$? $\lp[p]$?\marginnote{Recall that $\normtwo{x} \leq \normone{x}$ for every vector $x\in \R^{\dims}$, so one approximation implies the other.}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Count-Sketch}\marginnote{Chapter 5.3 of [AC]}
+We start with the CountSketch algorithm, due to  Charikar, Chen
+and Farach--Colton, which works in the \emph{turnstile} streaming model\marginnote{Turnstile model: ``numbers go up, or down''} and provides exactly that: an $\lp[2]$ guarantee.
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \Require Parameter $\dst\in(0,1]$
+    \State Set $\purple{k} \gets O(1/\dst^2)$, and initialize an array $\red{C}$ of size $\purple{k}$ to zero
+    \State Pick $h\colon[\ns]\to[\purple{k}]$ from a strongly universal hashing family
+    \State Pick $g\colon[\ns]\to\{-1,1\}$ from a strongly universal hashing family
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i = (j,c)\in [\ns]\times \{-B,\dots,B\}$ \Comment{Assume $B=O(1)$}
+        \State $\red{C}[h(j)] \gets \red{C}[h(j)] + c\cdot g(j)$
+    \EndFor
+    \Ensure On query $j\in[\ns]$, \Return $\blue{\widehat{f}}_j \gets g(j) \cdot \red{C}[h(j)]$
+    \end{algorithmic}
+    \caption{The \textsc{CountSketch} algorithm}
+\end{algorithm}
+\begin{fact}
+    \textsc{CountSketch} is a linear sketching\marginnote{Can you see why?} algorithm, provided the sketches $\red{C}_1,\red{C}_2$ are built using the same hash functions $h,g$.
+\end{fact}
+
+Some notation: for a vector $x\in\R^{\ns}$ and $j\in[\ns]$, denote by $x_{-j}\in\R^{\ns}$ the same vector, but with $j$-coordinate set to $0$.
+\begin{theorem}
+    \label{theo:countsketch}
+    The (median trick version of the) \textsc{CountSketch} algorithm  is a \emph{randomised} one-pass sketching algorithm which, for any given parameters $\dst,\errprob\in(0,1]$, provides a (succinctly represented) estimate $\blue{\widehat{f}}$ of frequency vector $\blue{f}$ of the stream such that, for every $j\in[\ns]$
+    \[
+           \probaOf{ \abs{\blue{\widehat{f}}_j-\blue{f}_j} \leq \dst \normtwo{\blue{f}_{-j}} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \Paren{ \log \ns +  \frac{1}{\dst^2}\log\green{m}}\log\frac{1}{\errprob} } 
+        =\bigO{ \Paren{\frac{\log(\ns\green{m})}{\dst^2}}\log\frac{1}{\errprob} }\,.
+    \]
+\end{theorem}
+To compare it to~\cref{eq:guarantee:l1:misra-gries}, we obtain the following:
+\begin{corollary}
+    The (median trick version of the) \textsc{CountSketch} algorithm  is a \emph{randomised} one-pass sketching algorithm which, for any given parameters $\dst,\errprob\in(0,1]$, provides a (succinctly represented) estimate $\blue{\widehat{f}}$ of frequency vector $\blue{f}$ of the stream such that
+    \[
+           \probaOf{ \norminf{\blue{\widehat{f}}-\blue{f}} \leq \dst \normtwo{\blue{f}} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \frac{\log(\ns\green{m})}{\dst^2}\log\frac{\ns}{\errprob} }\,.
+    \]
+\end{corollary}
+
+\begin{proofof}{\cref{theo:countsketch}}
+As in previous arguments, it suffices to establish the theorem for constant error probability, as the median trick will then allow us to amplify the success probability to $1-\errprob$ at the cost of a $\bigO{\log(1/\errprob)}$ in the space complexity.\smallskip
+
+To begin, note that the space requirement comes from storing (1)~the two hash functions $h,g$, and (2)~an array of $\purple{k}$ values, each between $-B\cdot\green{m}$ and $B\cdot\green{m}$. Assuming we are using ``good'' (that is, small enough) hash families such as the ones seen earlier in the course, the total is
+\begin{align*}
+\purple{s} &=\bigO{ \max(\log\ns,\log\purple{k})}  +  \bigO{ \log\ns } + \bigO{ \purple{k}\cdot \log(B\green{m})} \\
+&= \bigO{\log\ns + \log\frac{1}{\dst} + \frac{\log B + \log\green{m}}{\dst^2}} \\
+&= \bigO{\log\ns + \frac{\log\green{m}}{\dst^2}}
+\end{align*}
+(since we assume $B=O(1)$).\smallskip
+
+That was space. For correctness, the use of strongly universal hash families (\ie pairwise independent) hints at a variance-based argument, and so a natural idea is to compute the expectation and variance of each $\blue{\widehat{f}}_j$ in view of applying Chebyshev's inequality. Let's proceed: fix any $j\in[\ns]$.
+
+\begin{itemize}
+    \item Writing $a_i=(j_i,c_i)$ for each item $a_i$ of the stream, observe that item $a_i$ affects the value of $\blue{\widehat{f}}_j$ if, and only if, $h(j_i)=h(j)$ (since then $\red{C}[h(j)]$ is modified when processing item $a_i$). Furthermore, for any $j\in[\ns]$, the contribution of $j$ to the sketch $\red{C}$ is limited to the cell $\red{C}[h(j)]$, and is equal to its frequency $\blue{f}_{j}$, since
+    \[
+        \blue{f}_{j} = \sum_{i=1}^{\green{m}} c_i\indicSet{j_i=j}
+    \]
+    As a result, the expectation of $\blue{\widehat{f}}_j$ can be computed as
+    \begin{align*}
+        \expect{\blue{\widehat{f}}_j}
+        &= \expect{ g(j) \cdot \red{C}[h(j)]} \\
+        &= \expect{g(j)\sum_{i=1}^{\green{m}} \indicSet{h(j_i)=h(j)} c_i\cdot g(j_i)} \\
+        &= \expect{g(j)\sum_{j'\in [\ns]} \indicSet{h(j')=h(j)} \cdot g(j') \blue{f}_{j'}} \\
+        &= \expect{g(j)^2\blue{f}_{j}+ \sum_{j'\in [\ns]\setminus \{j\}} \indicSet{h(j')=h(j)} \cdot g(j)g(j') \blue{f}_{j'}}
+    \end{align*}
+    By linearity of expectation, and since $g(j)^2=1$, we get
+    \begin{align}
+        \expect{\blue{\widehat{f}}_j}
+        &=  \blue{f}_{j}+ \sum_{j'\in [\ns]\setminus \{j\}} \expect{\indicSet{h(j')=h(j)}g(j)g(j')} \cdot \blue{f}_{j'}\tag{$g(j)^2=1$, linearity of expectation} \\
+        &= \blue{f}_{j}+ \sum_{j'\in [\ns]\setminus \{j\}} \expect{\indicSet{h(j')=h(j)}} \cdot \expect{g(j)g(j')} \cdot \blue{f}_{j'}\tag{$h,g$ are independent} \\
+        &= \blue{f}_{j}+ \sum_{j'\in [\ns]\setminus \{j\}} \probaDistrOf{h}{h(j')=h(j)} \cdot \expect{g(j)}\expect{g(j')} \cdot \blue{f}_{j'}\tag{pairwise independence of $g$} \\
+        &= \blue{f}_{j}+ \sum_{j'\in [\ns]\setminus \{j\}} \probaDistrOf{h}{h(j')=h(j)} \cdot 0\cdot 0 \cdot \blue{f}_{j'}\tag{$g(j)$, $g(j')$ are uniformly distributed} \\
+        &= \blue{f}_{j}\,. \label{eq:countsketch:expectation}
+    \end{align}
+    (In the end we invoked the fact, proven in the tutorials, that drawing $g$ from a strongly universal hash family implies that $g(x)$ is uniformly distributed, for every fixed $x$.) Great: $\blue{\widehat{f}}_j$ has the right expectation.
+    
+\item In order to give an upper bound on its variance $\var[\blue{\widehat{f}}_j]=\expect{\blue{\widehat{f}}_j^2}-\expect{\blue{\widehat{f}}_j}^2$, we expand the square to compute the first term, using the same properties of $h$ and $g$:
+    \begin{align*}
+        \expect{\blue{\widehat{f}}_j^2}
+        &= \expect{\Paren{g(j)\sum_{j'\in [\ns]} \indicSet{h(j')=h(j)} \cdot g(j') \blue{f}_{j'}}^2} \\
+        &= \expect{g(j)^2\sum_{j',j''\in [\ns]} \indicSet{h(j')=h(j'')=h(j)} \cdot g(j')\cdot g(j'') \blue{f}_{j'}\blue{f}_{j''}} \\
+        &= \sum_{j',j''\in [\ns]} \expect{\indicSet{h(j')=h(j'')=h(j)} \cdot g(j')\cdot g(j'')}\blue{f}_{j'}\blue{f}_{j''} \tag{$g(j)^2=1$ and linearity of expectation} \\
+        &= \sum_{j',j''\in [\ns]} \expect{\indicSet{h(j')=h(j'')=h(j)} \cdot g(j')\cdot g(j'')}\blue{f}_{j'}\blue{f}_{j''} \tag{$g(j)^2=1$ and linearity of expectation} \\
+        &= \sum_{j',j''\in [\ns]} \probaOf{h(j')=h(j'')=h(j)} \cdot \expect{g(j')\cdot g(j'')}\blue{f}_{j'}\blue{f}_{j''} \tag{$h,g$ are independent} \\
+        &= \sum_{j',j''\in [\ns]} \probaOf{h(j')=h(j'')=h(j)} \cdot \indicSet{j'=j''}\cdot \blue{f}_{j'}\blue{f}_{j''} \tag{as before, $\expect{g(j')\cdot g(j'')} = 0$ if $j'\neq j''$} \\
+        &= \sum_{j'\in [\ns]} \probaOf{h(j')=h(j)} \cdot\blue{f}_{j'}^2 \\
+        &= 1\cdot \blue{f}_{j}^2 + \sum_{j'\in [\ns]\setminus\{j\}} \frac{1}{\purple{k}} \cdot \blue{f}_{j'}^2 \\
+        &= \blue{f}_{j}^2 + \frac{\normtwo{\blue{f}_{-j}}^2}{\purple{k}}\,,
+    \end{align*}
+    where the second-to-last step comes from drawing $h$ from a strongly independent hash family: of course, if $j=j'$ then $h(j)=h(j')$ (always), but otherwise this happens with probability $1/\purple{k}$ since $h(j')$ is uniformly distributed. 
+     This tells us that
+     \begin{align}
+        \var[\blue{\widehat{f}}_j]
+        &= \expect{\blue{\widehat{f}}_j^2} - \expect{\blue{\widehat{f}}_j}^2 \notag\\
+        &= \blue{f}_{j}^2 + \frac{\normtwo{\blue{f}_{-j}}^2}{\purple{k}} - \blue{f}_{j}^2 \notag\\
+        &= \frac{\normtwo{\blue{f}_{-j}}^2}{\purple{k}}\,. \label{eq:countsketch:variance}
+    \end{align}
+\end{itemize}
+Having the expectation and variance, we can conclude, by Chebyshev's inequality, that, for any fixed $j\in[\ns]$,
+\begin{align*}
+    \probaOf{\abs{\blue{\widehat{f}}_j - \blue{{f}}_j} > \dst \normtwo{\blue{f}_{-j}} }
+    &= \probaOf{\abs{\blue{\widehat{f}}_j - \expect{\blue{\widehat{f}}_j }} > \dst \normtwo{\blue{f}_{-j}} } \tag{\cref{eq:countsketch:expectation}} \\
+    &\leq \frac{\var[\blue{\widehat{f}}_j ]}{\dst^2\normtwo{\blue{f}_{-j}}^2 } \\
+    &= \frac{1}{\purple{k}\dst^2} \tag{\cref{eq:countsketch:variance}} \\
+    &\leq \frac{1}{3}
+\end{align*}
+the last inequality for any choice of $\purple{k} \geq \clg{3/\dst^2}$.
+\end{proofof}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Count-Min-Sketch}\marginnote{Chapter 5.4 of [AC]}
+Let us now cover a different (but similar-looking) algorothm with different guarantees, due to Cormode and Muthukrishnan, stated here in the cash register model:
+\textsc{CountMinSketch}.
+\begin{algorithm}
+    \begin{algorithmic}[1]
+    \Require Parameters $\dst,\errprob\in(0,1]$
+    \State Set $\purple{k} \gets O(1/\dst)$ and $T\gets O(\log(1/\errprob)$), and initialize a two-dimensional array $\red{C}$ of size $T\times \purple{k}$ to zero
+    \State Pick $h_1,\dots,h_T\colon[\ns]\to[\purple{k}]$ independently from a strongly universal hashing family
+    \ForAll{$1\leq i\leq \green{m}$}
+        \State Get item $a_i = (j,c)\in [\ns]\times \{0,\dots,B\}$ \Comment{Assume $B=O(1)$}
+        \ForAll{$1\leq t\leq T$}
+            \State $\red{C}[t][h_t(j)] \gets \red{C}[t][h_t(j)] + c$ \label{algo:countminsketch:step:update}
+        \EndFor
+    \EndFor
+    \Ensure On query $j\in[\ns]$, \Return $\blue{\widehat{f}}_j \gets \min_{1\leq t\leq T} \red{C}[t][h_t(j)]$
+    \end{algorithmic}
+    \caption{The \textsc{CountMinSketch} algorithm}
+\end{algorithm}
+\begin{fact}\marginnote{Can you see why?}
+    \textsc{CountMinSketch} is a linear sketching algorithm, provided the sketches $\red{C}_1,\red{C}_2$ are built using the same hash functions $h_1,\dots, h_T$.
+\end{fact}
+\marginnote{No median trick! The ``probability amplification'' is built-in, can you see where?}
+\begin{theorem}
+    \label{theo:countminsketch}
+    The \textsc{CountMinSketch} algorithm  is a \emph{randomised} one-pass sketching algorithm which, for any given parameters $\dst,\errprob\in(0,1]$, provides a (succinctly represented) estimate $\blue{\widehat{f}}$ of frequency vector $\blue{f}$ of the stream such that, for every $j\in[\ns]$
+    \[
+           \probaOf{ \abs{\blue{\widehat{f}}_j-\blue{f}_j} \leq \dst \normone{\blue{f}_{-j}} } \geq 1-\errprob
+    \]
+    with space complexity 
+    \[
+        \purple{s} = \bigO{ \frac{\log(\ns\green{m})}{\dst}\log\frac{1}{\errprob} }\,.
+    \]
+    (Moreover, $\blue{\widehat{f}}_j$ is always an overestimate: $\blue{\widehat{f}}_j \geq \blue{f}_j$ for all $j\in[\ns]$.)
+\end{theorem}
+
+But\dots is that not basically a similar guarantee as the \textsc{Misra--Gries} algorithm, but strictly worse? More space, and now it has a probability of failure!\smallskip
+
+\begin{framed}
+\noindent True, but compared to the \textsc{Misra--Gries} algorithm,
+\begin{itemize}
+    \item \textsc{CountMinSketch} is \emph{much} faster and simpler
+    \item It provides a \emph{linear} sketch, much easier to combine
+    \item It can be extended to the \emph{strict} turnstile model.
+\end{itemize}
+\end{framed}\marginnote{See tutorial for this last point!}
+\begin{proofof}{\cref{theo:countminsketch} (Sketch)}
+The key steps of the analysis are as follows:
+\begin{itemize}
+    \item the space complexity is 
+    \begin{align*}
+        \purple{s} 
+        &= T\cdot \Paren{\bigO{\max(\log\ns,\log\purple{k})} + \bigO{\purple{k}\cdot \log(B\green{m})}}\\
+         &= \bigO{T\purple{k}\log(\ns \green{m})}
+    \end{align*}
+    accounting for the $T$ hash functions and storing $T$ arrays of $\purple{k}$ numbers between $0$ and $B\green{m}$. 
+    \item In the cash register model, each update in Line~\ref{algo:countminsketch:step:update} is a non-negative number: and so, for every $1\leq t\leq T$ and every $j\in [\ns]$
+    \[
+    \red{C}[t][h_t(j)] = \blue{f}_j + \substack{\text{contributions from other}\\\text{elements }j'\text{ with }\\h_t(j')=h_t(j)} \geq \blue{f}_j
+    \]
+    and so
+    \[
+        \widehat{\blue{f}}_j = \min_{1\leq t\leq T} \red{C}[t][h_t(j)] \geq \blue{f}_j\,.
+    \]
+    \item Fix any $1\leq t\leq T$. For every $j\in[\ns]$,
+    \begin{align*}
+        \expect{\red{C}[t][h_t(j)]}
+        &= 
+        \expect{\blue{f}_j + \sum_{j'\in[\ns]\setminus\{j\}} \indicSet{h(j')=h(j)} \blue{f}_{j'}} \\
+        &= 
+        \blue{f}_j + \sum_{j'\in[\ns]\setminus\{j\}} \probaOf{h(j')=h(j)} \blue{f}_{j'} \\
+        &= 
+        \blue{f}_j + \frac{1}{\purple{k}} \sum_{j'\in[\ns]\setminus\{j\}} \blue{f}_{j'} \\
+        &= 
+        \blue{f}_j + \frac{\normone{\blue{f}_{-j}}}{\purple{k}}
+    \end{align*}
+    using that $h$ is a strongly universal family, and therefore $h(j')$ is uniformly distributed in $[\purple[k]$ for any $j'$. 
+    \item 
+    For any fixed $j\in[\ns]$ and $1\leq t\leq T$, let $X_{t,j} \eqdef \expect{\red{C}[t][h_t(j)]} - \blue{f}_j \geq 0$. We just showed that
+    \[
+    \expect{X_{t,j}}=\frac{\normone{\blue{f}_{-j}}}{\purple{k}}\,.
+    \]
+    By Markov's inequality (importantly, using $X_{t,j} \geq 0$ as proven above), this implies that
+    \[
+        \probaOf{\widehat{\blue{f}}_j - \blue{f}_j \geq \dst\normone{\blue{f}_{-j}} } \leq \frac{1}{\dst\purple{k}} \leq \frac{1}{2} \tag{$\star$}
+    \]
+    the last inequality as long as $\purple{k} \geq \clg{2/\dst}$.
+    \item Fix $j\in[\ns]$. We want to bound the quantity
+    \[
+     \probaOf{|\widehat{\blue{f}}_j - \blue{f}_j| \geq \dst\normone{\blue{f}_{-j}} }
+     = \probaOf{\widehat{\blue{f}}_j - \blue{f}_j \geq \dst\normone{\blue{f}_{-j}} }
+     = \probaOf{\min_{1\leq t\leq T} X_{j,t} \geq \dst\normone{\blue{f}_{-j}} }
+    \]
+    A nice fact about the minimum of $T$ random variables is that for the minimum to be greater than some value, \emph{all $T$ of them} need to be greater than this value. And since our $T$ random variables are independent, the expression simplifies a lot:
+    \begin{align*}
+    \probaOf{\min_{1\leq t\leq T} X_{j,t} \geq \dst\normone{\blue{f}_{-j}} }
+    &= \probaOf{\forall 1\leq t\leq T,\, X_{j,t} \geq \dst\normone{\blue{f}_{-j}} } \\
+    &= \prod_{t=1}^T\probaOf{X_{j,t} \geq \dst\normone{\blue{f}_{-j}} } \tag{by independence} \\
+    &\leq \prod_{t=1}^T \frac{1}{2} = \frac{1}{2^T} \tag{by $(\star)$}\\
+    &\leq \errprob \tag{by our choice of $T$}
+    \end{align*}
+\end{itemize}
+This proves the theorem.
+\end{proofof}
+
+
+% Good notes, too: https://www.sketchingbigdata.org/fall20/lec/notes.pdf (Jelani's)
