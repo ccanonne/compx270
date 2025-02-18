@@ -1,0 +1,197 @@
+\section{Algorithms}
+
+For a general refresher on ``classical'' algorithms, one cannot recommend enough Tim Roughgarden's lecture series and textbook, which comes with videos and programming assignments~\footnote{The textbooks are not free, but the videos and resources can be found at \url{https://www.algorithmsilluminated.org/}.} Another good reference book is Jeff Erickson's (free) textbook, which covers a lot of material and can be obtained on the author's website.\cite{Erickson2019}
+
+Make sure you are familiar with the definition and use of big-Oh (asymptotic) notation: $\bigO{}$, $\bigOmega{}$, $\bigTheta{}$. This is, for instance, Chapter 2 of Tim Roughgarden's book (volume 1).\footnote{We might encounter $\littleO{}$ at some point, even a couple paragraphs below, but this one will be explained when (or if) needed.} 
+Below, we point out two particular topics the student may want to reacquaint themselves with.
+
+\paragraph{Median in Linear Time.}
+There is an algorithm, based on the \emph{median-of-median} divide-and-conquer approach, which computes the median of an array of $\ns$ numbers in time $O(\ns)$.
+For more on this, see, Chapter~1.8 of Erickson's textbook or Chapter 6 of Tim Roughgarden's book (volume 1). This is also a good occasion to practice solving recurrence relations (with or without the Master Theorem).
+
+\paragraph{Max-Flow and Min-Cut.}
+This course assumes familiarity with algorithms for Max Flow and Min-Cut (in particular in Chapter~5). For a refresher, see, Chapters 10 and 11 of Erickson's textbook.
+
+\section{(Some) discrete maths}
+The point of this section is not to be comprehensive, but to give a few facts that you either should know; and, for most, be able to prove. If some seem unfamiliar (or you would be at a loss trying to establish them), it is alright! But please ask questions during the class or on the course online forum, so that we can help you with them (and related concepts).
+First, the factorial grows as $n! = n^{\Theta(n)}$, or, equivalently,
+\[
+\log n! = \bigTheta{n\log n}\,.
+\]
+More precisely, \emph{Stirling's approximation} (harder to show) gives\marginpar{Stirling's approximation}
+\[
+    n! = (1+o(1))\sqrt{2\pi n } \mleft(\frac{n}{e}\mright)^n
+\]
+where $o(1)$ means ``something that goes to $0$ as $n\to \infty$.'' From this, you can deduce for instance that\footnote{Exercise: check it!}
+\[
+    \binom{2n}{n} = \bigTheta{\frac{2^{2n}}{\sqrt{n}}}\,.
+\]
+Other useful statements include that the $n$-th Harmonic number, $H_n = \sum_{k=1}^n \frac{1}{k}$, is asymptotically\marginpar{Harmonic numbers}
+\[
+    H_n = \ln n + O(1)
+\]
+while $\sum_{k=1}^n \frac{1}{k^2} = O(1)$, since
+\[
+    \sum_{k=1}^n \frac{1}{k^2} \leq \sum_{k=1}^\infty \frac{1}{k^2} = \frac{\pi^2}{6}
+\]
+(this one is actually quite difficult to show), and
+\[
+    \sum_{k=1}^n \frac{1}{\sqrt{k}}  = \bigTheta{\sqrt{n}}\,.
+\]
+We will also take for granted the formula for geometric series: for $r\neq 1$,
+\[
+\sum_{k=0}^n r^k = \frac{r^{n+1}-1}{r-1}
+\]
+and so, for $|r|<1$, $\sum_{k=0}^\infty r^k = \frac{1}{1-r}$. More complicated, it will be helpful to know how to show, for $|r|<1$, that
+\[
+\sum_{k=1}^\infty k r^k = \frac{r}{(1-r)^2}
+\]
+Try it as a (very much not obvious) exercise: if you are stuck, don't worry -- but \emph{do ask} how to do it!
+
+To conclude this sample of things worth knowing or remembering, recall the \emph{inequality of arithmetic and geometric means (AM-GM):}\marginpar{AM-GM inequality} for any $x_1,\dots, x_n \geq 0$,
+\[
+(x_1 x_2\cdots x_n)^{1/n} \leq \frac{x_1+\dots + x_n}{n}
+\]
+and in particular, if $a,b\geq 0$, then $\sqrt{ab} \leq \frac{a+b}{2}$.
+
+\section{Probability}
+
+First, some notation. Throughout, we'll use 
+\begin{itemize}
+    \item $\probaOf{}$ for probabilities
+    \item $\expect{}$ for expectations
+    \item $\var[]$ for variances
+    \item  $X \sim \pi$ to denote that a random variable (r.v.) has probability distribution $\pi$
+\end{itemize}
+so, for instance, $\probaOf{X \geq 5}$ is the probability that the random variable $X$ is at least $5$ (assuming the probability distribution of $X$ is known or clear from context), while $\probaDistrOf{X\sim \pi}{X \geq 5}$ or $\probaDistrOf{\pi}{X \geq 5}$ specifies in addition that $X$ is distributed according to some probability distribution $\pi$.
+
+Now, a \emph{probability distribution} $\pi$ over some set $\domain$ is a beast that satisfies a collection of mathematical axioms, which we will not recall in detail here.\footnote{For a start, if we want to be precise, it's not ``just'' a set $\domain$, but a measurable space $(\domain, \Sigma)$, where $\Sigma$ is a $\sigma$-algebra (a collection of subsets of $\domain$ closed under complement, countable unions, and countable intersections). We won't go there, as in our case the whole thing will be clear from context.} When $\domain$ is discrete (finite or countable), as it will mostly be the case here, we can for our purposes think of a probability distribution $\pi$ as a non-negative function defined on subsets of $\domain$, such that
+\[
+\pi(\emptyset) = 0, \pi(\domain)=1
+\]
+(the probability of ``nothing'' is 0, the probability of ``everything'' is 1); and, for any countable collection of pairwise disjoints subsets $S_1,\dots, S_k,\dots \subseteq \domain$,
+\[
+\pi(\bigcup_{k=1}^\infty S_k)
+= \sum_{k=1}^\infty \pi(S_k)
+\]
+where a set $S\subseteq \domain$ is also called an \emph{event} (so ``the probabilities of disjoint \emph{events} add up''). In particular, if $S,T$ are disjoint events ($S\cap T=\emptyset$), then
+\[
+\pi(S \cup T) = \pi(S)+\pi(T)\,.
+\]
+More generally, if $S,T$ are arbitrary (not necessarily disjoint), then\footnote{Exercise: prove it using the previous rule, applied to (1)~$S \cup T=(S \setminus T) \cup T$ and (2)~$S = (S\setminus T)\cup (S\cap T)$.}
+\[
+\pi(S \cup T) = \pi(S)+\pi(T) - \pi(S\cap T)\,.
+\]
+%p(S) = p(S\setminus T)+ p(S\cap T)
+%p(S \cup T) = p((S \setminus T) \cup T)
+%= p((S \setminus T))+ p(T)
+%=  p(S) - p(S\cap T)+ p(T)
+
+When $\domain$ is continuous, for instance $\R$, and $\pi$ is ``well-behaved'' (almost always) we have similar properties, replacing sums ($\sum$) with integrals ($\int$).
+
+\paragraph{Random variables.} A random variable (r.v.) $X$ over domain $\domain$ will be specified by its probability distribution $\pi$, where, for any (measurable) event $S\subseteq \domain$,
+\[
+    \pi(S) = \probaOf{X \in S}
+\]
+In the discrete case, say, when $\domain = \{1,2,\dots, \ns\}$ or $\domain = \N$, we can fully specify the probability distribution of $X$ by its \emph{probability mass function} (pmf), writing
+\[
+    \pi(i) = \probaOf{X=i}\,,
+\]
+and then (from the axioms above), we have $\pi(S) = \sum_{i\in S} \pi(i)$.\marginpar{For instance, ``the probability that $X$ is an even number'' is 
+$
+\pi(\{0,2,4,6,\dots\}) = \pi(0)+\pi(2)+\pi(4)+\pi(6)+\dots
+$}
+
+Most of the time, we will deal with random variables taking either integer or real values, that is, $\domain\subseteq \R$. For such an r.v. $X$, we define the \emph{cumulative distribution function} (cdf)
+\[
+    F_X(t) = \probaOf{X \leq t}, \qquad t\in\R
+\]
+which fully characterizes the distribution of the random variable $X$. (If two r.v.'s have the same cdf, they have the same probability distribution.)
+
+\paragraph{Indicator random variables} An important specific case of random variables are those ``indicating an event'' by taking a value in $\{0,1\}$: that is, for an event $A\subseteq \domain$, we write $\indicSet{A}$ for the random variable which is $!$ if $A$ happens, and $1$ otherwise. As an example: say $X$ is a random variable uniformly distributed on $\{1,2,3,4\}$. Then
+\[
+    \indicSet{X \text{ even}}
+\]
+is equal to $1$ if $X=2$ or $X=4$, and $0$ if $X=1$ or $X=3$.
+
+\paragraph{Independence.} Two random variables $X,Y$ are \emph{independent} if
+\[
+    \probaOf{X \in S, Y\in T} = \probaOf{X\in S}\cdot \probaOf{Y\in T} \qquad \forall S,T\,.
+\]
+This is equivalent to having
+\[
+    \expect{f(X)g(Y)} = \expect{f(X)}\expect{g(Y)}
+\]
+for \emph{all} functions $f,g$ (whenever the expectations are well defined). In particular, that  implies that $\expect{X Y} = \expect{X} \expect{Y}$.
+
+This extends to more than two r.v.'s in the ``straightforward way'': $X_1,\dots, X_n$ are \emph{mutually independent} (or just \emph{independent}) if 
+\[
+    \probaOf{X_1 \in S, X_2\in S_2,\dots, X_n \in S_n} = \prod_{k=1}^n\probaOf{X_k\in S_k}\qquad \forall S_1,\dots, S_n\,.
+\]
+This is equivalent to having
+\[
+    \expect{\prod_{k=1}^n f_k(X_k)} = \prod_{k=1}^n\expect{f_k(X_k)}
+\]
+for \emph{all} functions $f_1,\dots, f_n$ (again, whenever the expectations are well defined).
+
+\paragraph{Bayes' Rule, Conditional Expectation, and Law of Total Expectation.} Given two events $A,B$ (and a probability distribution), the \emph{conditional probability of $A$ knowing $B$} (or \emph{conditioned on $B$} is given by
+\[
+\probaCond{A}{B} = \frac{\probaOf{A \cap B}}{\probaOf{B}} \tag{Bayes' Rule}
+\]
+For instance, if $X$ is a random variable uniform on $\{1,2,\dots, 2n\}$, then the ``probability that $X$ is prime conditioned on $X$ being even'' is
+\[
+    \probaCond{X \text{ prime}}{X \text{ even}}
+    = \frac{\probaOf{X \text{ is an even prime}}}{\probaOf{X \text{ even}}}
+    = \frac{\probaOf{X=2}}{\probaOf{X\in \{2,4,6,\dots, 2n\}}}
+    = \frac{\frac{1}{2n}}{n\cdot \frac{1}{2n}}
+    = \frac{1}{n}
+\]
+(note that $2$ is the only even prime.)
+
+This can be used to define \emph{conditional expectations}:\footnote{We are \emph{not} giving here a full formal treatment of conditional expectations: that would require measure theory and a lot more paper. See, \eg MATH4069 at the University (or ask after the class) if you're curious.} for an event $A$,
+\[
+\expectCond{X}{A}  = \sum_{x\in \domain} x \cdot \probaCond{X=x}{A} = \frac{\expect{X \indicSet{A}}}{\probaOf{A}}
+\]
+(this is for the discrete case: again, the continuous case is similar, with $\int$ instead of $\sum$ and a bit of extra care.)
+
+We can even go one step further and define conditional expectations with respect to \emph{random variables}, not events. Given two random variables $X,Y$, we can write
+\[
+    \expectCond{X}{Y}
+\]
+for the new random variable ``$X$ conditioned on $Y$.'' We will not define it formally here, but this random variable corresponds to ``averaging over whatever randomness remains in $X$ once you know $Y$'', and satisfies a few important properties: the first is the \emph{Law of Total Expectation},\marginpar{Law of Total Expectation}
+\[
+\expect{\expectCond{X}{Y}} = \expect{X}
+\]
+which basically states that ``taking expectations step by step'' gives the same result as doing it in one go.
+
+The other is that, whenever $X$ and $Y$ are independent then knowing $Y$ does not change anything about $X$, and so conditioning on $Y$ still requires you to ``average over all the randomness of $X$'':
+\[
+\expectCond{X}{Y} = \expect{X} \tag{if $X,Y$ independent}
+\]
+The other extreme is when $X$ is a deterministic function of $Y$. Then knowing $Y$ means there is no other randomness left at play, and $f(Y)$ acts like a constant (fixed number) as far as the conditional expectation is concerned:
+\[
+\expectCond{f(Y)}{Y} = f(Y) \tag{for any function $f$}
+\]
+For instance, $\expectCond{Y^2}{Y} = Y^2$; or, if $X,Y$ are independent, combining both facts above, 
+$\expectCond{Y^2 X}{Y} = Y^2 \expectCond{X}{Y} = Y^2\expect{X}$. Besides the above, conditional expectations basically behave like ``normal'' expectations, but adding ``$\mid \cdot ]$'' at the end.
+
+\paragraph{Some probability distributions.} 
+For $p\in(0,1]$, the \emph{Geometric distribution with parameter $p$}, $\operatorname{Geom}(p)$, is the discrete distribution over $\mathbb{N} = \{1,2,\dots, n,\dots\}$ with probability mass function 
+\[
+\pi(k) = p(1-p)^{k-1}
+\] for $k\in\mathbb{N}$. It has expectation $1/p$ and variance $(1-p)/p^2$.
+
+For $\lambda \geq 0$, the \emph{Poisson distribution with parameter $\lambda$}, $\operatorname{Poi}(\lambda)$, is the discrete distribution over $\mathbb{N}\cup \{0\} = \{0,1,2,\dots, n,\dots\}$ with probability mass function 
+\[
+\pi(k) = e^{-\lambda} \frac{\lambda^k}{k!}
+\] for $k\in\mathbb{N}\cup \{0\}$. It has expectation $\lambda$ and variance $\lambda$.
+
+For $p\in[0,1]$, the \emph{Bernoulli distribution with parameter $p$}, $\bernoulli{p}$, is the discrete distribution over $\{0,1\}$ with probability mass function 
+\[
+\pi(0) = 1-p,\quad \pi(1)=p
+\] It has expectation $p$ and variance $p(1-p)$.
+
+For integer $n \geq 1$ and $p\in[0,1]$, the \emph{Binomial distribution with parameters $n$ and $p$}, $\binomial{n}{p}$, is the discrete distribution over $\{0,1,2,\dots, n\}$ with probability mass function 
+\[
+\pi(k) = \binom{n}{k} p^k(1-p)^{n-k}
+\] for $0 \leq k \leq n$. It has expectation $np$ and variance $np(1-p)$.\marginpar{The Bernoulli distribution is a ``baby'' Binomial distribution with $n=1$.}
